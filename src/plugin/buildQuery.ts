@@ -1,0 +1,78 @@
+/**
+ * Licensed to the Apache Software Foundation (ASF) under one
+ * or more contributor license agreements.  See the NOTICE file
+ * distributed with this work for additional information
+ * regarding copyright ownership.  The ASF licenses this file
+ * to you under the Apache License, Version 2.0 (the
+ * "License"); you may not use this file except in compliance
+ * with the License.  You may obtain a copy of the License at
+ *
+ *   http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { buildQueryContext } from '@superset-ui/core';
+import type {
+  QueryFormColumn,
+  QueryFormData,
+  QueryFormOrderBy,
+  QueryObject,
+} from '@superset-ui/core';
+import type { EquipmentStateTimelineChartFormData } from '../types';
+import {
+  getColumnLabel,
+  parsePositiveInteger,
+  uniqueColumnLikes,
+} from '../utils';
+
+export default function buildQuery(formData: QueryFormData) {
+  const fd = formData as EquipmentStateTimelineChartFormData;
+  const tooltipColumns = [
+    fd.productive_pct_column,
+    fd.not_productive_pct_column,
+    fd.not_scheduled_pct_column,
+    fd.in_count_column,
+    fd.good_count_column,
+    fd.reject_count_column,
+    fd.efficiency_column,
+    fd.oee_column,
+    fd.oee_loss_column,
+    fd.down_duration_column,
+    fd.planned_stop_duration_column,
+    fd.cycle_loss_duration_column,
+    fd.small_stop_duration_column,
+    fd.startup_rejects_column,
+    fd.production_rejects_column,
+  ];
+  const columns = uniqueColumnLikes([
+    fd.start_time_column,
+    fd.end_time_column,
+    fd.reason_column,
+    ...tooltipColumns,
+  ]) as QueryFormColumn[];
+  const rowLimit = parsePositiveInteger(fd.row_limit, 10000, { min: 1 });
+  const orderby = [
+    getColumnLabel(fd.start_time_column),
+    getColumnLabel(fd.end_time_column),
+  ]
+    .filter((value): value is string => Boolean(value))
+    .map(label => [label, true] as QueryFormOrderBy);
+
+  return buildQueryContext(formData, (baseQueryObject: QueryObject) => [
+    {
+      ...baseQueryObject,
+      columns,
+      metrics: [],
+      orderby,
+      row_limit: rowLimit,
+      series_columns: [],
+      is_timeseries: false,
+    },
+  ]);
+}
