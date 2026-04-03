@@ -34,6 +34,7 @@ import {
 export default function buildQuery(formData: QueryFormData) {
   const fd = formData as EquipmentStateTimelineChartFormData;
   const tooltipColumns = [
+    fd.detailed_reason_column,
     fd.productive_pct_column,
     fd.not_productive_pct_column,
     fd.not_scheduled_pct_column,

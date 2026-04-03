@@ -19,6 +19,7 @@
 
 import type {
   ColumnLike,
+  LegendItem,
   TimelineSegment,
   TooltipFieldDefinition,
   TooltipRow,
@@ -96,6 +97,18 @@ export function stringifyValue(value: unknown, fallback = 'Unknown'): string {
   }
 
   return String(value);
+}
+
+export function hasMeaningfulValue(value: unknown): boolean {
+  if (value === null || typeof value === 'undefined') {
+    return false;
+  }
+
+  if (typeof value === 'string') {
+    return value.trim().length > 0;
+  }
+
+  return true;
 }
 
 export function parseOptionalNumber(value: unknown, fallback?: number): number | null {
@@ -238,13 +251,31 @@ export function formatTooltipValue(
   }
 }
 
-export function parseStateColorMapping(input?: string | null): Record<string, string> {
-  if (!input?.trim()) {
+export function parseStateColorMapping(
+  input?: Record<string, string> | string | null,
+): Record<string, string> {
+  if (!input) {
+    return {};
+  }
+
+  if (typeof input !== 'string') {
+    return Object.entries(input).reduce<Record<string, string>>((accumulator, entry) => {
+      const [key, value] = entry;
+      if (typeof value === 'string' && key.trim()) {
+        accumulator[key.trim()] = value.trim();
+      }
+
+      return accumulator;
+    }, {});
+  }
+
+  const normalizedInput = input.trim();
+  if (!normalizedInput) {
     return {};
   }
 
   try {
-    const parsed = JSON.parse(input);
+    const parsed = JSON.parse(normalizedInput);
     if (parsed && typeof parsed === 'object' && !Array.isArray(parsed)) {
       return Object.entries(parsed).reduce<Record<string, string>>((accumulator, entry) => {
         const [key, value] = entry;
@@ -259,7 +290,7 @@ export function parseStateColorMapping(input?: string | null): Record<string, st
     // Fall through to line-based parsing below.
   }
 
-  return input.split(/\r?\n/).reduce<Record<string, string>>((accumulator, line) => {
+  return normalizedInput.split(/\r?\n/).reduce<Record<string, string>>((accumulator, line) => {
     const trimmed = line.trim();
     if (!trimmed || trimmed.startsWith('#')) {
       return accumulator;
@@ -301,6 +332,22 @@ export function buildSegmentId(index: number, reason: string, start: number, end
   return `${index}:${reason}:${start}:${end}`;
 }
 
+export function buildLegendItems(
+  segmentReasons: string[],
+  colorMapping: Record<string, string>,
+  fallbackColor: string,
+): LegendItem[] {
+  const orderedNames = [
+    ...Object.keys(colorMapping),
+    ...segmentReasons,
+  ].filter((value, index, array) => array.indexOf(value) === index);
+
+  return orderedNames.map(name => ({
+    name,
+    color: resolveSegmentColor(name, colorMapping, fallbackColor),
+  }));
+}
+
 function escapeHtml(value: string): string {
   return value
     .replace(/&/g, '&amp;')
@@ -324,9 +371,11 @@ export function buildTooltipHtml(
 
   return [
     '<div style="min-width:240px;">',
-    `<div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#111827;">${escapeHtml(
-      segment.reason,
-    )}</div>`,
+    segment.tooltipTitle
+      ? `<div style="font-weight:700;font-size:13px;margin-bottom:6px;color:#111827;">${escapeHtml(
+          segment.tooltipTitle,
+        )}</div>`
+      : '',
     '<table style="border-collapse:collapse;width:100%;font-size:12px;line-height:1.35;">',
     rows,
     '</table>',

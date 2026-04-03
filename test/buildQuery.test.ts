@@ -3,6 +3,7 @@ import buildQuery from '../src/plugin/buildQuery';
 describe('buildQuery', () => {
   it('includes required and optional tooltip columns', () => {
     const context = buildQuery({
+      detailed_reason_column: 'detailed_reason',
       end_time_column: 'event_end',
       good_count_column: 'good_count',
       productive_pct_column: 'productive_pct',
@@ -16,6 +17,7 @@ describe('buildQuery', () => {
       'event_start',
       'event_end',
       'reason',
+      'detailed_reason',
       'productive_pct',
       'good_count',
     ]);

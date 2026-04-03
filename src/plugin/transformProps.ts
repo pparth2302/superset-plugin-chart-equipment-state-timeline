@@ -26,8 +26,10 @@ import type {
 } from '../types';
 import {
   TOOLTIP_FIELD_DEFINITIONS,
+  buildLegendItems,
   buildSegmentId,
   getColumnLabel,
+  hasMeaningfulValue,
   parseOptionalNumber,
   parsePositiveInteger,
   parseStateColorMapping,
@@ -47,13 +49,11 @@ function getRuntimeHooks(chartProps: ChartProps) {
 function buildTooltipRows(
   row: TimeseriesDataRecord,
   formData: EquipmentStateTimelineChartFormData,
-  reasonColumnLabel: string,
   start: number,
   end: number,
   durationMs: number,
 ): TimelineSegment['tooltipRows'] {
   const tooltipRows: TimelineSegment['tooltipRows'] = [
-    { label: 'Reason', value: row[reasonColumnLabel], valueType: 'string' },
     { label: 'Start Time', value: start, valueType: 'timestamp' },
     { label: 'End Time', value: end, valueType: 'timestamp' },
     { label: 'Duration', value: durationMs, valueType: 'duration' },
@@ -61,14 +61,34 @@ function buildTooltipRows(
 
   TOOLTIP_FIELD_DEFINITIONS.forEach(definition => {
     const columnLabel = getColumnLabel(formData[definition.controlKey]);
+    if (!columnLabel || !hasMeaningfulValue(row[columnLabel])) {
+      return;
+    }
+
     tooltipRows.push({
       label: definition.label,
-      value: columnLabel ? row[columnLabel] : null,
+      value: row[columnLabel],
       valueType: definition.valueType,
     });
   });
 
   return tooltipRows;
+}
+
+function getTooltipTitle(
+  row: TimeseriesDataRecord,
+  formData: EquipmentStateTimelineChartFormData,
+): string | undefined {
+  const detailedReasonColumnLabel = getColumnLabel(formData.detailed_reason_column);
+
+  if (detailedReasonColumnLabel && hasMeaningfulValue(row[detailedReasonColumnLabel])) {
+    return String(row[detailedReasonColumnLabel]).trim();
+  }
+
+  // TODO: If users ask for it later, add an explicit opt-in fallback to the main
+  // reason/state value here. For now we intentionally hide reason-style text when
+  // detailed reason is not configured or empty.
+  return undefined;
 }
 
 export default function transformProps(
@@ -96,8 +116,17 @@ export default function transformProps(
     max: Math.floor(rowHeight / 2),
   });
   const showXAxis = rawFormData.show_x_axis ?? true;
+  const showLegend = rawFormData.show_legend ?? true;
+  const legendPosition = rawFormData.legend_position ?? 'bottom';
   const tooltipEnabled = rawFormData.tooltip_enabled ?? true;
   const zoomPanEnabled = rawFormData.zoom_pan_enabled ?? true;
+  const dataZoomBottomOffset = parsePositiveInteger(rawFormData.data_zoom_bottom_offset, 8, {
+    min: 0,
+  });
+  const dataZoomHeight = parsePositiveInteger(rawFormData.data_zoom_height, 18, {
+    min: 8,
+  });
+  const dataZoomGap = parsePositiveInteger(rawFormData.data_zoom_gap, 10, { min: 0 });
   const timeLabelFormat = rawFormData.time_label_format ?? '%m-%d %H:%M';
   const tooltipTimeFormat = rawFormData.tooltip_time_format ?? '%Y-%m-%d %H:%M:%S';
   const fallbackColor = rawFormData.default_fallback_color?.trim() || '#9ca3af';
@@ -138,6 +167,7 @@ export default function transformProps(
         id: buildSegmentId(index, reason, start, end),
         reason,
         reasonValue,
+        tooltipTitle: getTooltipTitle(row, rawFormData),
         start,
         end,
         durationMs,
@@ -146,7 +176,6 @@ export default function transformProps(
         tooltipRows: buildTooltipRows(
           row,
           rawFormData,
-          reasonColumnLabel,
           start,
           end,
           durationMs,
@@ -167,6 +196,11 @@ export default function transformProps(
   const maxEnd = segments.length
     ? Math.max(...segments.map(segment => segment.end))
     : minStart + 3600000;
+  const legendItems = buildLegendItems(
+    segments.map(segment => segment.reason),
+    colorMapping,
+    fallbackColor,
+  );
 
   return {
     width,
@@ -178,12 +212,18 @@ export default function transformProps(
     rowHeight,
     segmentBorderRadius,
     showXAxis,
+    showLegend,
+    legendPosition,
     tooltipEnabled,
     zoomPanEnabled,
+    dataZoomBottomOffset,
+    dataZoomHeight,
+    dataZoomGap,
     timeLabelFormat,
     tooltipTimeFormat,
     fallbackColor,
     colorMapping,
+    legendItems,
     xDomain: [minStart, maxEnd],
     minVisibleTimeRangeMs,
     warnings,

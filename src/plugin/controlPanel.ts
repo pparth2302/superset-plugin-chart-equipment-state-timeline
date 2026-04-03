@@ -20,6 +20,8 @@
 import { t } from '@superset-ui/core';
 import { sections, sharedControls } from '@superset-ui/chart-controls';
 import type { ControlPanelConfig } from '@superset-ui/chart-controls';
+import StateColorMappingControl from './StateColorMappingControl';
+import { DEFAULT_REASON_COLORS } from '../utils';
 
 const controlPanel: ControlPanelConfig = {
   controlPanelSections: [
@@ -55,6 +57,8 @@ const controlPanel: ControlPanelConfig = {
               description: t('Required. Categorical machine state or loss reason.'),
             },
           },
+        ],
+        [
           {
             name: 'granularity_sqla',
             config: {
@@ -67,7 +71,32 @@ const controlPanel: ControlPanelConfig = {
             },
           },
         ],
-        ['time_range'],
+        [
+          {
+            name: 'state_color_mapping',
+            config: {
+              type: StateColorMappingControl,
+              label: t('Reason/state colors'),
+              default: DEFAULT_REASON_COLORS,
+              renderTrigger: true,
+              description: t(
+                'Assign a color to each reason/state value without using raw JSON.',
+              ),
+            },
+          },
+        ],
+        [
+          {
+            name: 'default_fallback_color',
+            config: {
+              type: 'TextControl',
+              label: t('Fallback color'),
+              default: '#9ca3af',
+              renderTrigger: true,
+              description: t('Color used when a state has no explicit mapping.'),
+            },
+          },
+        ],
         ['adhoc_filters'],
         ['row_limit'],
       ],
@@ -77,6 +106,17 @@ const controlPanel: ControlPanelConfig = {
       expanded: true,
       tabOverride: 'data',
       controlSetRows: [
+        [
+          {
+            name: 'detailed_reason_column',
+            config: {
+              ...sharedControls.series,
+              label: t('Detailed Reason column'),
+              clearable: true,
+              default: null,
+            },
+          },
+        ],
         [
           {
             name: 'productive_pct_column',
@@ -268,6 +308,15 @@ const controlPanel: ControlPanelConfig = {
             },
           },
           {
+            name: 'show_legend',
+            config: {
+              type: 'CheckboxControl',
+              label: t('Show legend'),
+              default: true,
+              renderTrigger: true,
+            },
+          },
+          {
             name: 'tooltip_enabled',
             config: {
               type: 'CheckboxControl',
@@ -309,14 +358,60 @@ const controlPanel: ControlPanelConfig = {
         ],
         [
           {
-            name: 'default_fallback_color',
+            name: 'legend_position',
             config: {
-              type: 'TextControl',
-              label: t('Default fallback color'),
-              default: '#9ca3af',
+              type: 'SelectControl',
+              label: t('Legend Position'),
+              default: 'bottom',
+              clearable: false,
               renderTrigger: true,
+              choices: [
+                ['top', t('Top')],
+                ['bottom', t('Bottom')],
+              ],
             },
           },
+        ],
+        [
+          {
+            name: 'data_zoom_bottom_offset',
+            config: {
+              type: 'TextControl',
+              label: t('Data zoom bottom offset'),
+              default: 8,
+              isInt: true,
+              renderTrigger: true,
+              description: t('Bottom offset in pixels for the slider zoom control.'),
+            },
+          },
+          {
+            name: 'data_zoom_height',
+            config: {
+              type: 'TextControl',
+              label: t('Data zoom height'),
+              default: 18,
+              isInt: true,
+              renderTrigger: true,
+              description: t('Height in pixels for the slider zoom control.'),
+            },
+          },
+        ],
+        [
+          {
+            name: 'data_zoom_gap',
+            config: {
+              type: 'TextControl',
+              label: t('Data zoom spacing'),
+              default: 10,
+              isInt: true,
+              renderTrigger: true,
+              description: t(
+                'Spacing in pixels between the chart content, legend, and data zoom slider.',
+              ),
+            },
+          },
+        ],
+        [
           {
             name: 'min_visible_time_range_ms',
             config: {
@@ -326,21 +421,6 @@ const controlPanel: ControlPanelConfig = {
               renderTrigger: true,
               description: t(
                 'Optional minimum zoom range in milliseconds to keep very dense timelines readable.',
-              ),
-            },
-          },
-        ],
-        [
-          {
-            name: 'state_color_mapping',
-            config: {
-              type: 'TextAreaControl',
-              label: t('Color mapping by state'),
-              default:
-                '{\n  "Running Normally": "#16a34a",\n  "Down / Fault": "#dc2626",\n  "Planned Stop": "#f59e0b",\n  "Idle / Waiting": "#6b7280",\n  "Production Reject": "#7f1d1d"\n}',
-              renderTrigger: true,
-              description: t(
-                'Use JSON or one mapping per line, for example Running Normally = #16a34a.',
               ),
             },
           },

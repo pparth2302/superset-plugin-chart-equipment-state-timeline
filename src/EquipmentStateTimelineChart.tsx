@@ -17,9 +17,13 @@
  * under the License.
  */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useMemo, useRef } from 'react';
 import * as echarts from 'echarts';
-import type { EquipmentStateTimelineChartProps, TimelineSegment } from './types';
+import type {
+  EquipmentStateTimelineChartProps,
+  LegendPosition,
+  TimelineSegment,
+} from './types';
 import { buildTooltipHtml, formatTimestampValue } from './utils';
 
 function buildDataMask(segment: TimelineSegment, reasonColumnLabel: string) {
@@ -50,6 +54,56 @@ function buildDataMask(segment: TimelineSegment, reasonColumnLabel: string) {
   };
 }
 
+function getChartLayout({
+  dataZoomBottomOffset,
+  dataZoomGap,
+  dataZoomHeight,
+  legendItemsCount,
+  legendPosition,
+  showLegend,
+  showXAxis,
+  zoomPanEnabled,
+}: {
+  dataZoomBottomOffset: number;
+  dataZoomGap: number;
+  dataZoomHeight: number;
+  legendItemsCount: number;
+  legendPosition: LegendPosition;
+  showLegend: boolean;
+  showXAxis: boolean;
+  zoomPanEnabled: boolean;
+}) {
+  const legendVisible = showLegend && legendItemsCount > 0;
+  const legendHeight = legendVisible ? 36 : 0;
+  const axisHeight = showXAxis ? 24 : 0;
+  const sliderHeight = zoomPanEnabled ? dataZoomHeight : 0;
+  const topPadding = 8;
+  const bottomPadding = dataZoomBottomOffset;
+
+  const legendTop =
+    legendVisible && legendPosition === 'top' ? 0 : undefined;
+  const legendBottom =
+    legendVisible && legendPosition === 'bottom'
+      ? bottomPadding + (zoomPanEnabled ? sliderHeight + dataZoomGap : 0)
+      : undefined;
+  const gridTop =
+    topPadding + (legendVisible && legendPosition === 'top' ? legendHeight + dataZoomGap : 0);
+  const gridBottom =
+    bottomPadding +
+    (zoomPanEnabled ? sliderHeight + dataZoomGap : 0) +
+    axisHeight +
+    (legendVisible && legendPosition === 'bottom' ? legendHeight + dataZoomGap : 0);
+
+  return {
+    chartHeight: Math.max(80, gridTop + gridBottom),
+    dataZoomBottom: bottomPadding,
+    gridBottom,
+    gridTop,
+    legendBottom,
+    legendTop,
+  };
+}
+
 export default function EquipmentStateTimelineChart(
   props: EquipmentStateTimelineChartProps,
 ) {
@@ -60,9 +114,15 @@ export default function EquipmentStateTimelineChart(
     rowHeight,
     segmentBorderRadius,
     showXAxis,
+    showLegend,
+    legendPosition,
     tooltipEnabled,
     zoomPanEnabled,
+    dataZoomBottomOffset,
+    dataZoomHeight,
+    dataZoomGap,
     reasonColumnLabel,
+    legendItems,
     xDomain,
     minVisibleTimeRangeMs,
     warnings,
@@ -73,6 +133,29 @@ export default function EquipmentStateTimelineChart(
   } = props;
   const containerRef = useRef<HTMLDivElement | null>(null);
   const chartRef = useRef<echarts.EChartsType | null>(null);
+  const layout = useMemo(
+    () =>
+      getChartLayout({
+        dataZoomBottomOffset,
+        dataZoomGap,
+        dataZoomHeight,
+        legendItemsCount: legendItems.length,
+        legendPosition,
+        showLegend,
+        showXAxis,
+        zoomPanEnabled,
+      }),
+    [
+      dataZoomBottomOffset,
+      dataZoomGap,
+      dataZoomHeight,
+      legendItems.length,
+      legendPosition,
+      showLegend,
+      showXAxis,
+      zoomPanEnabled,
+    ],
+  );
 
   useEffect(() => {
     if (!containerRef.current) {
@@ -117,12 +200,29 @@ export default function EquipmentStateTimelineChart(
     const option: echarts.EChartsCoreOption = {
       animation: false,
       grid: {
-        top: 8,
+        top: layout.gridTop,
         right: 16,
-        bottom: showXAxis || zoomPanEnabled ? 48 : 12,
+        bottom: layout.gridBottom,
         left: 16,
         containLabel: showXAxis,
       },
+      legend:
+        showLegend && legendItems.length
+          ? {
+              type: legendItems.length > 6 ? 'scroll' : 'plain',
+              left: 16,
+              right: 16,
+              top: layout.legendTop,
+              bottom: layout.legendBottom,
+              itemGap: 12,
+              icon: 'roundRect',
+              selectedMode: false,
+              textStyle: {
+                color: axisTextColor,
+              },
+              data: legendItems.map(item => item.name),
+            }
+          : undefined,
       xAxis: {
         type: 'time',
         min: xDomain[0],
@@ -168,22 +268,15 @@ export default function EquipmentStateTimelineChart(
       dataZoom: zoomPanEnabled
         ? [
             {
-              type: 'inside',
-              xAxisIndex: 0,
-              filterMode: 'none',
-              minValueSpan: minVisibleTimeRangeMs ?? undefined,
-              moveOnMouseMove: true,
-              moveOnMouseWheel: true,
-              zoomOnMouseWheel: true,
-            },
-            {
               type: 'slider',
               xAxisIndex: 0,
-              bottom: 8,
-              height: 18,
+              bottom: layout.dataZoomBottom,
+              height: dataZoomHeight,
               filterMode: 'none',
               minValueSpan: minVisibleTimeRangeMs ?? undefined,
               showDataShadow: false,
+              brushSelect: false,
+              moveHandleSize: 8,
               textStyle: {
                 color: axisTextColor,
               },
@@ -191,8 +284,22 @@ export default function EquipmentStateTimelineChart(
           ]
         : [],
       series: [
+        ...legendItems.map(item => ({
+          type: 'scatter' as const,
+          name: item.name,
+          data: [],
+          symbol: 'roundRect',
+          itemStyle: {
+            color: item.color,
+          },
+          silent: true,
+          tooltip: {
+            show: false,
+          },
+        })),
         {
           type: 'custom',
+          name: 'Equipment timeline',
           coordinateSystem: 'cartesian2d',
           dimensions: ['lane', 'start', 'end', 'duration'],
           encode: {
@@ -289,12 +396,16 @@ export default function EquipmentStateTimelineChart(
       zr.off('click', handleBlankClick);
     };
   }, [
+    dataZoomHeight,
     height,
+    layout,
+    legendItems,
     minVisibleTimeRangeMs,
     reasonColumnLabel,
     segmentBorderRadius,
     segments,
     setDataMask,
+    showLegend,
     showXAxis,
     theme,
     timeFormatter,
@@ -327,14 +438,14 @@ export default function EquipmentStateTimelineChart(
   return (
     <div
       style={{
-        height: Math.max(height, rowHeight + (showXAxis || zoomPanEnabled ? 52 : 16)),
+        height: Math.max(height, rowHeight + layout.chartHeight),
         width,
       }}
     >
       <div
         ref={containerRef}
         style={{
-          height: Math.max(rowHeight + (showXAxis || zoomPanEnabled ? 52 : 16), 80),
+          height: Math.max(rowHeight + layout.chartHeight, 80),
           width: '100%',
         }}
       />

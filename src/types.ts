@@ -64,10 +64,18 @@ export interface TooltipRow {
   valueType: TooltipValueType;
 }
 
+export interface LegendItem {
+  name: string;
+  color: string;
+}
+
+export type LegendPosition = 'top' | 'bottom';
+
 export interface TimelineSegment {
   id: string;
   reason: string;
   reasonValue: unknown;
+  tooltipTitle?: string;
   start: number;
   end: number;
   durationMs: number;
@@ -81,6 +89,7 @@ export interface EquipmentStateTimelineChartFormData extends QueryFormData {
   end_time_column?: ColumnLike;
   reason_column?: ColumnLike;
   granularity_sqla?: string;
+  detailed_reason_column?: ColumnLike;
   productive_pct_column?: ColumnLike;
   not_productive_pct_column?: ColumnLike;
   not_scheduled_pct_column?: ColumnLike;
@@ -99,12 +108,17 @@ export interface EquipmentStateTimelineChartFormData extends QueryFormData {
   row_height?: number | string;
   segment_border_radius?: number | string;
   show_x_axis?: boolean;
+  show_legend?: boolean;
+  legend_position?: LegendPosition;
   time_label_format?: string;
   tooltip_time_format?: string;
-  state_color_mapping?: string;
+  state_color_mapping?: Record<string, string> | string | null;
   default_fallback_color?: string;
   tooltip_enabled?: boolean;
   zoom_pan_enabled?: boolean;
+  data_zoom_bottom_offset?: number | string;
+  data_zoom_height?: number | string;
+  data_zoom_gap?: number | string;
   min_visible_time_range_ms?: number | string | null;
   row_limit?: number | string;
 }
@@ -119,12 +133,18 @@ export interface EquipmentStateTimelineChartProps {
   rowHeight: number;
   segmentBorderRadius: number;
   showXAxis: boolean;
+  showLegend: boolean;
+  legendPosition: LegendPosition;
   tooltipEnabled: boolean;
   zoomPanEnabled: boolean;
+  dataZoomBottomOffset: number;
+  dataZoomHeight: number;
+  dataZoomGap: number;
   timeLabelFormat: string;
   tooltipTimeFormat: string;
   fallbackColor: string;
   colorMapping: Record<string, string>;
+  legendItems: LegendItem[];
   xDomain: [number, number];
   minVisibleTimeRangeMs: number | null;
   warnings: string[];

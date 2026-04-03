@@ -10,7 +10,8 @@
 - Structured production and OEE tooltip
 - Optional click-to-filter integration via Superset data mask hooks
 - Configurable row height, corner radius, fallback color, and time formatting
-- Flexible reason-to-color mapping from the control panel
+- Structured reason-to-color mapping editor in the Data tab
+- Optional scrollable legend for visible state colors
 
 ## Install
 
@@ -41,9 +42,10 @@ new SupersetPluginChartEquipmentStateTimeline().configure({
 ## Explore Configuration
 
 - Set `Start time column`, `End time column`, and `Reason/state column`.
-- Set `Dashboard time filter column` to the temporal field Superset should use for native time filtering. In most cases this should match `Start time column`.
-- Add any optional tooltip metric columns you want surfaced in the hover card.
-- Use `Color mapping by state` as JSON or `State = #hex` lines.
+- Set `Dashboard time filter column` to the temporal field Superset should use for native dashboard time filters. In most cases this should match `Start time column`.
+- Add any optional tooltip metric columns you want surfaced in the hover card, including `Detailed Reason column` if you want a richer tooltip description.
+- Configure state colors with the structured `Reason/state colors` editor in the Data tab and use `Fallback color` for anything unmapped.
+- Optional tooltip rows are shown only when a source column is mapped and the event row contains a value.
 
 ## Mock Data
 
@@ -52,6 +54,5 @@ Sample rows for local testing are exported from [src/mockData.ts](/c:/Users/ppat
 ## Notes
 
 - The plugin intentionally renders only the lower machine-state timeline band, not a shift summary panel.
+- The plugin intentionally relies on Superset's native/dashboard time filter state rather than a duplicate plugin-specific time-range control.
 - Click-to-filter is implemented conservatively using the reason/state value. There are `TODO` comments where project-specific filtering logic can be expanded to include event-level identifiers or time-window filters.
-
-More to come
